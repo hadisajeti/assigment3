@@ -1,0 +1,41 @@
+trigger:
+- master
+
+pool:
+  name: Default
+
+steps:
+- script: |
+    npm install
+    npm run test
+    npm run lint
+    npm run build
+  displayName: 'Install, Test, Lint, and Build App'
+
+- powershell: |
+
+    $env:AWS_ACCESS_KEY_ID = 
+    $env:AWS_SECRET_ACCESS_KEY = 
+
+    # AWS CLI login
+    aws configure set aws_access_key_id $env:AWS_ACCESS_KEY_ID
+    aws configure set aws_secret_access_key $env:AWS_SECRET_ACCESS_KEY
+
+
+- task: TerraformInstaller@0
+  inputs:
+    terraformVersion: 'latest'
+
+- script: |
+    cd ops/iac/s3
+    terraform init
+    terraform apply -auto-approve
+  displayName: 'Terraform Init and Apply'
+
+- task: AWSCLI@1
+  inputs:
+    awsCommand: 's3 sync'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      aws s3 sync build/ s3://react-app-hajeti/
+    displayName: 'Sync Build to S3'
